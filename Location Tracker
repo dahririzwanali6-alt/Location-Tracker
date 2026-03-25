@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Makeba Location Tracker</title>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 400px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 2rem;
+            box-shadow: 2px 0 20px rgba(0,0,0,0.1);
+            overflow-y: auto;
+        }
+
+        .main-map {
+            flex: 1;
+            position: relative;
+        }
+
+        .header {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .user-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .user-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+        }
+
+        .user-name {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .user-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .status-online {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #4ade80;
+            animation: pulse 2s infinite;
+        }
+
+        .status-offline {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ef4444;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(74, 222, 128, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+        }
+
+        .location-info {
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            color: #64748b;
+        }
+
+        .track-btn {
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 1rem;
+        }
+
+        .track-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .track-btn.active {
+            background: linear-gradient(45deg, #4ade80, #22c55e);
+        }
+
+        .speed-info {
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #333;
+            margin: 1rem 0;
+        }
+
+        .devices-list {
+            margin-top: 2rem;
+        }
+
+        .device-item {
+            display: flex;
+            align-items: center;
+            padding: 1rem;
+            background: white;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        }
+
+        .device-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        .device-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1rem;
+        }
+
+        .device-info h4 {
+            font-size: 1rem;
+            color: #333;
+            margin-bottom: 0.25rem;
+        }
+
+        .device-status {
+            font-size: 0.85rem;
+            color: #64748b;
+        }
+
+        #map {
+            height: 100%;
+            border-radius: 20px;
+            margin: 1rem;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            gap: 10px;
+        }
+
+        .control-btn {
+            padding: 10px 15px;
+            background: rgba(255,255,255,0.9);
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .control-btn:hover {
+            background: white;
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            .sidebar {
+                width: 100%;
+                height: 40%;
+            }
+            .main-map {
+                height: 60%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h1 class="header">📍 Makeba Tracker</h1>
+            
+            <div class="user-card">
+                <div class="user-avatar">M</div>
+                <div class="user-name">Makeba Jones</div>
+                <div class="user-status">
+                    <div class="status-online"></div>
+                    <span>Online - Moving</span>
+                </div>
+                <div class="speed-info">
+                    <div>28 km/h</div>
+                    <div style="font-size: 0.9rem; color: #64748b;">Current Speed</div>
+                </div>
+                <div class="location-info">
+                    <strong>Last Update:</strong> 2 seconds ago<br>
+                    <strong>Address:</strong> 123 Main St, Nairobi, Kenya<br>
+                    <strong>Accuracy:</strong> 5 meters
+                </div>
+                <button class="track-btn active" id="trackBtn">
+                    📡 Tracking Active
+                </button>
+            </div>
+
+            <div class="devices-list">
+                <h3 style="margin-bottom: 1rem; color: #333;">Other Devices</h3>
+                <div class="device-item" data-lat="1.2921" data-lng="36.8219">
+                    <div class="device-avatar">J</div>
+                    <div class="device-info">
+                        <h4>Juma's Phone</h4>
+                        <div class="device-status">Online • 1.2 km away</div>
+                    </div>
+                </div>
+                <div class="device-item" data-lat="-1.286389" data-lng="36.817223">
+                    <div class="device-avatar">A</div>
+                    <div class="device-info">
+                        <h4>Aisha's iPhone</h4>
+                        <div class="device-status">Online • 3.4 km away</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-map">
+            <div id="map"></div>
+            <div class="controls">
+                <button class="control-btn" id="centerBtn">🎯 Center</button>
+                <button class="control-btn" id="refreshBtn">🔄 Refresh</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize map
+        const map = L.map('map').setView([1.2921, 36.8219], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Custom marker icon
+        const makebaIcon = L.divIcon({
+            className: 'custom-marker',
+            html: '<div style="background: linear-gradient(45deg, #667eea, #764ba2); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; box-shadow: 0 4px 20px rgba(102,126,234,0.5);">M</div>',
+            iconSize: [40, 40],
+            iconAnchor: [20, 20]
+        });
+
+        // Makeba's marker
+        const makebaMarker = L.marker([1.2921, 36.8219], {icon: makebaIcon}).addTo(map);
+        makebaMarker.bindPopup('<b>Makeba Jones</b><br>Online • 28 km/h');
+
+        // Other device markers
+        const devices = [
+            { name: "Juma", lat: 1.2921, lng: 36.8219, color: '#10b981' },
+            { name: "Aisha", lat: -1.286389, lng: 36.817223, color: '#f59e0b' }
+        ];
+
+        devices.forEach(device => {
+            const icon = L.divIcon({
+                className: 'custom-marker',
+                html: `<div style="background: ${device.color}; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.8rem; font-weight: bold;">${device.name[0]}</div>`,
+                iconSize: [30, 30],
+                iconAnchor: [15, 15]
+            });
+            const marker = L.marker([device.lat, device.lng], {icon}).addTo(map);
+            marker.bindPopup(`<b>${device.name}</b><br>Online`);
+        });
+
+        // Simulate real-time location updates
+        let currentLat = 1.2921;
+        let currentLng = 36.8219;
+        let speed = 28;
+
+        function updateLocation() {
+            // Simulate movement
+            currentLat += (Math.random() - 0.5) * 0.0005;
+            currentLng += (Math.random() - 0.5) * 0.0005;
+            speed = Math.max(0, speed + (Math.random() - 0.5) * 5);
+
+            makebaMarker.setLatLng([currentLat, currentLng]);
+            map.panTo([currentLat, currentLng], {animate: true, duration: 1});
+
+            // Update UI
+            document.querySelector('.speed-info div:first-child').textContent = `${Math.round(speed)} km/h`;
+            document.querySelector('.location-info strong:first-of-type + br + strong + br + strong').textContent = 
+                `Accuracy: ${Math.round(Math.random() * 10)} meters`;
+
+            // Update popup
+            makebaMarker.setPopupContent(`<b>Makeba Jones</b><br>Online • ${Math.round(speed)} km/h`);
+        }
+
+        // Tracking controls
+        const trackBtn = document.getElementById('trackBtn');
+        let tracking = true;
+
+        trackBtn.addEventListener('click', () => {
+            tracking = !tracking;
+            if (tracking) {
+                trackBtn.textContent = '📡 Tracking Active';
+                trackBtn.classList.add('active');
+                locationInterval = setInterval(updateLocation, 2000);
+            } else {
+                trackBtn.textContent = '▶️ Start Tracking';
+                trackBtn.classList.remove('active');
+                clearInterval(locationInterval);
+            }
+        });
+
+        // Device list click handlers
+        document.querySelectorAll('.device-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const lat = parseFloat(item.dataset.lat);
+                const lng = parseFloat(item.dataset.lng);
+                map.setView([lat, lng], 16);
+            });
+        });
+
+        // Control buttons
+        document.getElementById('centerBtn').addEventListener('click', () => {
+            map.setView([currentLat, currentLng], 16);
+        });
+
+        document.getElementById('refreshBtn').addEventListener('click', () => {
+            updateLocation();
+        });
+
+        // Auto-center on load
+        setTimeout(() => map.setView([currentLat, currentLng], 16), 500);
+
+        // Start tracking simulation
+        const locationInterval = setInterval(updateLocation, 2000);
+
+        // Get real GPS if available
+        if (navigator.geolocation) {
+            navigator.geolocation.watchPosition(
+                (position) => {
+                    currentLat = position.coords.latitude;
+                    currentLng = position.coords.longitude;
+                    speed = position.coords.speed ? Math.round(position.coords.speed * 3.6) : speed;
+                    makebaMarker.setLatLng([currentLat, currentLng]);
+                    map.panTo([currentLat, currentLng]);
+                },
+                null,
+                { enableHighAccuracy: true, timeout: 5000, maximumAge: 1000 }
+            );
+        }
+    </script>
+</body>
+</html>
